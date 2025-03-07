@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointment Booking</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Current Time Display -->
+    <div class="current-time-container">
+        <span class="time-icon">⏰</span>
+        <span id="currentTimeDisplay" class="current-time">Loading...</span>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Book Your Appointment</h1>
+            <p class="subtitle">Schedule a time that works for you</p>
+        </header>
+
+        <div class="card" id="formCard">
+            <form id="appointmentForm">
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="service">Service Type</label>
+                    <select id="service" name="service" required>
+                        <option value="">Select a service</option>
+                        <option value="consultation">Initial Consultation</option>
+                        <option value="followup">Follow-up Appointment</option>
+                        <option value="checkup">Regular Check-up</option>
+                        <option value="emergency">Emergency Service</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Additional Notes</label>
+                    <textarea id="notes" name="notes" rows="3"></textarea>
+                </div>
+
+                <button type="submit">Continue to Select Date</button>
+            </form>
+        </div>
+
+        <div class="card hidden" id="availableSlotsCard">
+            <h2>Available Appointment Slots</h2>
+
+            <div id="availableSlotsContainer" class="available-slots-container">
+                <!-- Available slots will be generated dynamically -->
+                <div id="slotsLoadingMessage">Loading available slots...</div>
+            </div>
+
+            <div class="confirmation hidden" id="confirmationMessage">
+                <h3>Appointment Confirmed!</h3>
+                <p id="confirmationDetails"></p>
+                <button id="newAppointment" style="margin-top: 1rem;">Book Another Appointment</button>
+            </div>
+
+            <div class="form-group" style="margin-top: 2rem;">
+                <button id="backToForm" style="background-color: var(--light-text);">Back</button>
+                <button id="confirmAppointment" class="hidden">Confirm Appointment</button>
+            </div>
+        </div>
+    </div>
+
+<script src="script.js"></script>
+</body>
+</html>
