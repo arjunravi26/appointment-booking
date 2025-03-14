@@ -1,4 +1,5 @@
 // DOM elements
+
 const appointmentForm = document.getElementById('appointmentForm');
 const formCard = document.getElementById('formCard');
 const availableSlotsCard = document.getElementById('availableSlotsCard');
@@ -16,6 +17,24 @@ let selectedDate = null;
 let selectedTimeSlot = null;
 let userDetails = {};
 let availableDates = [];
+
+// EmailJS configuration
+// Replace with your actual EmailJS user ID
+const emailjsUserId = "CVhl2CVWJBKYXBUJl";
+const emailjsServiceId = "service_4134ql9";
+const emailjsTemplateId = "template_c7t2sig";
+
+// Initialize EmailJS
+(function() {
+    // Only initialize if EmailJS is loaded
+    if (typeof emailjs !== 'undefined') {
+        emailjs.init(emailjsUserId);
+        console.log("EmailJS loaded")
+    } else {
+        console.error("EmailJS library not loaded properly");
+        console.log("EmailJS not loaded")
+    }
+})();
 
 // Update current time
 function updateCurrentTime() {
@@ -81,15 +100,29 @@ const generateTimeSlots = (date) => {
     // Base time slots
     const allTimeSlots = [
         "9:00 AM", "10:00 AM", "10:30 AM",
-        "11:00 AM", "11:30 AM", "12:00",
+        "11:00 AM", "11:30 AM", "12:00 PM",  // Fixed the 12:00 missing AM/PM
         "2:00 PM", "2:30 PM", "3:00 PM", "4:00 PM"
     ];
 
     // If the selected date is today, filter out past time slots
     if (isToday) {
         return allTimeSlots.filter(slot => {
-            const [time, period] = slot.split(' ');
-            let [hour, minute] = time.split(':').map(Number);
+            // Handle the special case where period might be missing
+            let time = slot;
+            let period = "AM";
+
+            if (slot.includes("PM") || slot.includes("AM")) {
+                [time, period] = slot.split(' ');
+            }
+
+            let [hour, minute] = [12, 0]; // Default values
+
+            if (time.includes(":")) {
+                [hour, minute] = time.split(':').map(Number);
+            } else {
+                hour = parseInt(time);
+                minute = 0;
+            }
 
             // Convert to 24-hour format for comparison
             if (period === 'PM' && hour !== 12) hour += 12;
@@ -114,14 +147,17 @@ const generateTimeSlots = (date) => {
         });
     }
 
-    // For future dates, simulate some randomness in availability
-    return allTimeSlots.filter(() => Math.random() > 0.7); // Approximately 70% of slots are available
+    // For future dates, return more slots (changed from random to deterministic)
+    return allTimeSlots;
 };
 
 // Display available slots
 const displayAvailableSlots = () => {
-    // Clear previous content
+    // Clear previous content and remove loading message
     availableSlotsContainer.innerHTML = '';
+    if (slotsLoadingMessage) {
+        slotsLoadingMessage.style.display = 'none';
+    }
 
     // Generate available dates and slots
     availableDates = generateAvailableDates();
@@ -154,8 +190,8 @@ const displayAvailableSlots = () => {
             </div>
             <div class="time-options">
                 ${dateInfo.availableSlots.map(time =>
-            `<span class="time-option" data-time="${time}">${time}</span>`
-        ).join('')}
+                    `<span class="time-option" data-time="${time}">${time}</span>`
+                ).join('')}
             </div>
         `;
 
@@ -187,14 +223,83 @@ const displayAvailableSlots = () => {
     });
 };
 
+// Send confirmation email
+const sendConfirmationEmail = (appointmentDetails) => {
+    // Show loading state
+    confirmAppointmentBtn.disabled = true;
+    confirmAppointmentBtn.textContent = 'Sending...';
+
+    // Check if EmailJS is available
+    if (typeof emailjs === 'undefined') {
+        console.error("EmailJS not available");
+        alert("Email service is not available. Your appointment is still confirmed.");
+        confirmAppointmentBtn.disabled = false;
+        confirmAppointmentBtn.textContent = 'Confirm Appointment';
+        return Promise.resolve(true); // Return resolved promise to continue the flow
+    }
+
+    // Prepare email template parameters
+    // const templateParams = {
+    //     to_name: appointmentDetails.name,
+    //     to_email: appointmentDetails.email,
+    //     appointment_date: appointmentDetails.formattedDate,
+    //     appointment_time: appointmentDetails.selectedTimeSlot,
+    //     appointment_service: appointmentDetails.serviceName,
+    //     booking_time: appointmentDetails.bookingTime,
+    //     booking_date: appointmentDetails.bookingDate,
+    //     notes: appointmentDetails.notes || 'No additional notes provided'
+    // };
+    // Prepare email template parameters
+    const templateParams = {
+    to_name: appointmentDetails.name,
+    to_email: appointmentDetails.email,
+    subject: `Appointment Confirmation for ${appointmentDetails.name}`,
+    appointment_service: appointmentDetails.serviceName,
+    appointment_date: appointmentDetails.formattedDate,
+    appointment_time: appointmentDetails.selectedTimeSlot,
+    booking_date: appointmentDetails.bookingDate,
+    booking_time: appointmentDetails.bookingTime,
+    notes: appointmentDetails.notes || 'No additional notes provided'
+};
+
+    // Send email using EmailJS, returning the promise
+    return emailjs.send(emailjsServiceId, emailjsTemplateId, templateParams)
+        .then(response => {
+            console.log('Email sent successfully:', response);
+            return true;
+        })
+        .catch(error => {
+            console.error('Email sending failed:', error);
+            alert('Failed to send confirmation email, but your appointment is confirmed. Please save the details.');
+            return true; // Continue with the booking process even if email fails
+        })
+        .finally(() => {
+            // Reset button state
+            confirmAppointmentBtn.disabled = false;
+            confirmAppointmentBtn.textContent = 'Confirm Appointment';
+        });
+};
+
+// Get service name based on service value
+const getServiceName = (serviceValue) => {
+    const services = {
+        'consultation': 'Initial Consultation',
+        'followup': 'Follow-up Appointment',
+        'checkup': 'Regular Check-up',
+        'emergency': 'Emergency Service'
+    };
+
+    return services[serviceValue] || serviceValue;
+};
+
 // Confirm appointment
-const confirmAppointment = () => {
+const confirmAppointment = async () => {
     if (!selectedDate || !selectedTimeSlot) {
         alert('Please select a date and time for your appointment.');
         return;
     }
 
-    // In a real application, you would send this data to a server
+    // Format the selected date
     const formattedDate = selectedDate.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
@@ -211,79 +316,107 @@ const confirmAppointment = () => {
         hour12: true
     });
 
-    // Display confirmation message
-    confirmationDetails.innerHTML = `
-        <strong>${userDetails.name}</strong>, your appointment has been scheduled for
-        <strong>${formattedDate}</strong> at <strong>${selectedTimeSlot}</strong> for
-        <strong>${getServiceName(userDetails.service)}</strong>.<br>
-        <span style="font-size: 0.9rem; margin-top: 0.5rem; display: block;">
-            Booked on ${now.toLocaleDateString()} at ${bookingTime}
-        </span>
-        A confirmation email has been sent to ${userDetails.email}.
-    `;
+    const bookingDate = now.toLocaleDateString();
+    const serviceName = getServiceName(userDetails.service);
 
-    // Hide slots and show confirmation
-    availableSlotsContainer.classList.add('hidden');
-    confirmAppointmentBtn.classList.add('hidden');
-    confirmationMessage.classList.remove('hidden');
-};
-
-// Get service name based on service value
-const getServiceName = (serviceValue) => {
-    const services = {
-        'consultation': 'Initial Consultation',
-        'followup': 'Follow-up Appointment',
-        'checkup': 'Regular Check-up',
-        'emergency': 'Emergency Service'
+    // Prepare appointment details for both display and email
+    const appointmentDetails = {
+        name: userDetails.name,
+        email: userDetails.email,
+        phone: userDetails.phone,
+        formattedDate: formattedDate,
+        selectedTimeSlot: selectedTimeSlot,
+        serviceName: serviceName,
+        bookingTime: bookingTime,
+        bookingDate: bookingDate,
+        notes: userDetails.notes
     };
 
-    return services[serviceValue] || serviceValue;
+    try {
+        // Send confirmation email
+        await sendConfirmationEmail(appointmentDetails);
+
+        // Display confirmation message
+        confirmationDetails.innerHTML = `
+            <strong>${appointmentDetails.name}</strong>, your appointment has been scheduled for
+            <strong>${appointmentDetails.formattedDate}</strong> at <strong>${appointmentDetails.selectedTimeSlot}</strong> for
+            <strong>${appointmentDetails.serviceName}</strong>.<br>
+            <span style="font-size: 0.9rem; margin-top: 0.5rem; display: block;">
+                Booked on ${appointmentDetails.bookingDate} at ${appointmentDetails.bookingTime}
+            </span>
+            A confirmation email has been sent to ${appointmentDetails.email}.
+        `;
+
+        // Hide slots and show confirmation
+        availableSlotsContainer.classList.add('hidden');
+        confirmAppointmentBtn.classList.add('hidden');
+        confirmationMessage.classList.remove('hidden');
+
+        // In a real application, you would also save this data to a database
+        console.log('Appointment confirmed:', appointmentDetails);
+    } catch (error) {
+        console.error("Error during confirmation process:", error);
+        alert("There was an error processing your appointment. Please try again.");
+    }
 };
 
 // Event listeners
-appointmentForm.addEventListener('submit', (e) => {
-    e.preventDefault();
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure all elements are properly loaded before adding listeners
+    if (appointmentForm) {
+        appointmentForm.addEventListener('submit', (e) => {
+            e.preventDefault();
 
-    // Get form data
-    const formData = new FormData(appointmentForm);
-    userDetails = Object.fromEntries(formData.entries());
+            // Get form data
+            const formData = new FormData(appointmentForm);
+            userDetails = Object.fromEntries(formData.entries());
 
-    // Show available slots card
-    formCard.classList.add('hidden');
-    availableSlotsCard.classList.remove('hidden');
+            // Show available slots card
+            formCard.classList.add('hidden');
+            availableSlotsCard.classList.remove('hidden');
 
-    // Display available slots
-    displayAvailableSlots();
-});
+            // Display available slots
+            displayAvailableSlots();
+        });
+    } else {
+        console.error("appointmentForm element not found");
+    }
 
-backToFormBtn.addEventListener('click', () => {
-    // Show form card
-    availableSlotsCard.classList.add('hidden');
-    formCard.classList.remove('hidden');
+    if (backToFormBtn) {
+        backToFormBtn.addEventListener('click', () => {
+            // Show form card
+            availableSlotsCard.classList.add('hidden');
+            formCard.classList.remove('hidden');
 
-    // Reset selections
-    selectedDate = null;
-    selectedTimeSlot = null;
-    confirmAppointmentBtn.classList.add('hidden');
-    confirmationMessage.classList.add('hidden');
-    availableSlotsContainer.classList.remove('hidden');
-});
+            // Reset selections
+            selectedDate = null;
+            selectedTimeSlot = null;
+            confirmAppointmentBtn.classList.add('hidden');
+            confirmationMessage.classList.add('hidden');
+            availableSlotsContainer.classList.remove('hidden');
+        });
+    }
 
-confirmAppointmentBtn.addEventListener('click', confirmAppointment);
+    if (confirmAppointmentBtn) {
+        confirmAppointmentBtn.addEventListener('click', confirmAppointment);
+    }
 
-newAppointmentBtn.addEventListener('click', () => {
-    // Reset form
-    appointmentForm.reset();
+    if (newAppointmentBtn) {
+        newAppointmentBtn.addEventListener('click', () => {
+            // Reset form
+            appointmentForm.reset();
 
-    // Reset selections
-    selectedDate = null;
-    selectedTimeSlot = null;
+            // Reset selections
+            selectedDate = null;
+            selectedTimeSlot = null;
 
-    // Hide confirmation message
-    confirmationMessage.classList.add('hidden');
-    availableSlotsContainer.classList.remove('hidden');
+            // Hide confirmation message
+            confirmationMessage.classList.add('hidden');
+            availableSlotsContainer.classList.remove('hidden');
 
-    // Show form card
-    availableSlotsCard.classList.add('hidden');
-    formCard.classList.remove('hidden');
+            // Show form card
+            availableSlotsCard.classList.add('hidden');
+            formCard.classList.remove('hidden');
+        });
+    }
 });
