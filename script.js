@@ -20,7 +20,7 @@ let availableDates = [];
 
 // EmailJS configuration
 // Replace with your actual EmailJS user ID
-const emailjsUserId = "CVhl2CVWJBKYXBUJl";
+const emailjsUserId = "Qxy6E7KryBQfgbgLJ";
 const emailjsServiceId = "service_4134ql9";
 const emailjsTemplateId = "template_c7t2sig";
 
@@ -238,17 +238,6 @@ const sendConfirmationEmail = (appointmentDetails) => {
         return Promise.resolve(true); // Return resolved promise to continue the flow
     }
 
-    // Prepare email template parameters
-    // const templateParams = {
-    //     to_name: appointmentDetails.name,
-    //     to_email: appointmentDetails.email,
-    //     appointment_date: appointmentDetails.formattedDate,
-    //     appointment_time: appointmentDetails.selectedTimeSlot,
-    //     appointment_service: appointmentDetails.serviceName,
-    //     booking_time: appointmentDetails.bookingTime,
-    //     booking_date: appointmentDetails.bookingDate,
-    //     notes: appointmentDetails.notes || 'No additional notes provided'
-    // };
     // Prepare email template parameters
     const templateParams = {
     to_name: appointmentDetails.name,
